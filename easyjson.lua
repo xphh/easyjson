@@ -114,7 +114,10 @@ local function find_value(json, pos)
 	end
 	local _, ep, value = string.find(json, '^%s*([+-]?[%.%d]+)', pos)
 	if value ~= nil then
-		return 'number', tonumber(value), ep
+		local n = tonumber(value)
+		if n ~= nil then
+			return 'number', n, ep
+		end
 	end
 	local _, ep, value = string.find(json, '^%s*(true)', pos)
 	if value ~= nil then
@@ -150,39 +153,40 @@ function parse_object(object)
 	end
 	local pos = 1
 	while true do
-		local key, kind, value, sep
-		key, pos = find_key(object, pos + 1)
+		local key, ep = find_key(object, pos + 1)
 		if key == nil then
-			return nil, 'cannot find key'
+			return nil, 'cannot find key', pos
 		end
-		kind, value, pos = find_value(object, pos + 1)
+		pos = ep
+		local kind, value, ep = find_value(object, pos + 1)
 		if kind == nil then
-			return nil, 'cannot find value'
-		end
-		if kind == 'object' then
-			local sub, err = parse_object(value)
+			return nil, 'cannot find value', pos
+		elseif kind == 'object' then
+			local sub, err, subpos = parse_object(value)
 			if sub == nil then
-				return nil, err
+				return nil, err, pos + 1 + subpos
 			else
 				t[key] = sub
 			end
 		elseif kind == 'array' then
-			local sub, err = parse_array(value)
+			local sub, err, subpos = parse_array(value)
 			if sub == nil then
-				return nil, err
+				return nil, err, pos + 1 + subpos
 			else
 				t[key] = sub
 			end
 		else
 			t[key] = value
 		end
-		sep, pos = find_seperator(object, pos + 1)
+		pos = ep
+		local sep, ep = find_seperator(object, pos + 1)
 		if sep == ',' then
 		elseif sep == '}' then
 			return t
 		else
-			return nil, 'missing "}"'
+			return nil, 'missing "}"', pos
 		end
+		pos = ep
 	end
 	return t
 end
@@ -195,46 +199,68 @@ function parse_array(array)
 	local pos = 1
 	local count = 1
 	while true do
-		local kind, value, sep
-		kind, value, pos = find_value(array, pos + 1)
+		local kind, value, ep = find_value(array, pos + 1)
 		if kind == nil then
-			return nil, 'cannot find element'
-		end
-		if kind == 'object' then
-			local sub, err = parse_object(value)
+			return nil, 'cannot find element', pos
+		elseif kind == 'object' then
+			local sub, err, subpos = parse_object(value)
 			if sub == nil then
-				return nil, err
+				return nil, err, pos + 1 + subpos
 			else
 				t[count] = sub
 			end
 		elseif kind == 'array' then
-			local sub, err = parse_array(value)
+			local sub, err, subpos = parse_array(value)
 			if sub == nil then
-				return nil, err
+				return nil, err, pos + 1 + subpos
 			else
 				t[count] = sub
 			end
 		else
 			t[count] = value
 		end
-		sep, pos = find_seperator(array, pos + 1)
+		pos = ep
+		local sep, ep = find_seperator(array, pos + 1)
 		if sep == ',' then
 			count = count + 1
 		elseif sep == ']' then
 			return t
 		else
-			return nil, 'missing "]"'
+			return nil, 'missing "]"', pos
 		end
+		pos = ep
 	end
 	return t
+end
+
+local function errmsg(err, json, pos)
+	local line = 1
+	local col = 1
+	for i = 1, pos do
+		col = col + 1
+		local ch = string.sub(json, i, i)
+		if ch == '\n' then
+			line = line + 1
+			col = 1
+		end
+	end
+	return err..' at line:'..line..' col:'..col
 end
 
 function decode(json)
 	local kind, value = find_value(json)
 	if kind == 'object' then
-		return parse_object(value)
+		local t, err, pos = parse_object(value)
+		if t == nil then
+			return nil, errmsg(err, json, pos)
+		end
+		return t
 	elseif kind == 'array' then
-		return parse_array(value)
+		local t, err, pos = parse_array(value)
+		if t == nil then
+			return nil, errmsg(err, json, pos)
+		end
+		return t
 	end
 	return nil, 'cannot find json object or array'
 end
