@@ -78,7 +78,7 @@ end
 --	json decoding implementation, using Lua string Regular Expression
 -------------------------------------------------------------------------------
 local function find_key(json, pos)
-	local _, ep, key = string.find(json, '^%s*"(%w+)"%s*:', pos)
+	local _, ep, key = string.find(json, '^%s*"([^"]+)"%s*:', pos)
 	return key, ep
 end
 
@@ -154,6 +154,10 @@ function parse_object(object)
 	end
 	local pos = 1
 	while true do
+		local sep, ep = find_seperator(object, pos + 1)
+		if sep == '}' then
+			return t
+		end
 		local key, ep = find_key(object, pos + 1)
 		if key == nil then
 			return nil, 'cannot find key', pos
