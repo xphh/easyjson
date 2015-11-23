@@ -34,8 +34,6 @@ local t = {
 			xxx = 1,
 			yyy = '222'
 		},
-		123,
-		456
 	},
 	f4 = {
 		h1 = 789,
@@ -50,5 +48,5 @@ local tt, err = json.decode(str)
 if not tt then
 	print(err)
 else
-	print(json.encode(tt, true))
+	print(json.encode(tt, true, 0, {ind='  ', line='\n'}))
 end

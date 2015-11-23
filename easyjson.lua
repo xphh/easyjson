@@ -33,12 +33,13 @@ local function isarray(t)
 	end
 end
 
-function encode(t, isfmt, level)
+function encode(t, isfmt, level, fmtpar)
 	local json = ''
 	level = level or 0
-	local tab = isfmt and '\t' or ''
+	fmtpar = fmtpar or {ind = '\t', line = '\n'}
+	local tab = isfmt and fmtpar.ind or ''
 	local tabs = isfmt and string.rep(tab, level) or ''
-	local el = isfmt and '\n' or ''
+	local el = isfmt and fmtpar.line or ''
 	if t == nil then
 		json = json..'null'
 	elseif type(t) == 'boolean' then
@@ -47,14 +48,14 @@ function encode(t, isfmt, level)
 		json = json..t
 	elseif type(t) == 'table' then
 		if isarray(t) then
-			json = json..'['..el
+			json = json..'['
 			for i = 1, #t do
 				if i > 1 then
-					json = json..','..el
+					json = json..','
 				end
-				json = json..tabs..tab..encode(t[i], isfmt, level + 1)
+				json = json..encode(t[i], isfmt, level, fmtpar)
 			end
-			json = json..el..tabs..']'
+			json = json..']'
 		else
 			json = json..'{'..el
 			local count = 0
@@ -63,7 +64,7 @@ function encode(t, isfmt, level)
 				if count > 1 then
 					json = json..','..el
 				end
-				json = json..tabs..tab..'"'..i..'":'..encode(v, isfmt, level + 1)
+				json = json..tabs..tab..'"'..i..'":'..encode(v, isfmt, level + 1, fmtpar)
 			end
 			json = json..el..tabs..'}'
 		end
